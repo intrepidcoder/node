@@ -10,6 +10,8 @@
 #include <sstream>
 #include <vector>
 
+#include <stdio.h>
+
 #include "src/objects-inl.h"
 
 #include "src/accessors.h"
@@ -16290,10 +16292,28 @@ MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
   return Initialize(regexp, source, flags);
 }
 
+void log_regexp(Handle<String> source) {
+  static FILE *regexp_log = NULL;
+  if (regexp_log == NULL) {
+    regexp_log = fopen("/home/daniel/extracted_regexps.txt", "wb");
+  }
+  if (regexp_log != NULL) {
+    source->PrintOn(regexp_log);
+    PrintF(regexp_log, "%c", '\0');
+    // source->PrintOn(stderr);
+    // PrintF(stderr, "%c", '\n');
+  } else {
+    PrintF(stderr, "Could not open regexp log file.\n");
+  }
+}
+
 
 // static
 MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
                                            Handle<String> source, Flags flags) {
+
+  log_regexp(source);
+
   Isolate* isolate = regexp->GetIsolate();
   Factory* factory = isolate->factory();
   // If source is the empty string we set it to "(?:)" instead as
