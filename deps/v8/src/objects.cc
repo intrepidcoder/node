@@ -11,6 +11,8 @@
 #include <vector>
 
 #include <stdio.h>
+#include <fstream>
+#include "src/picojson.h"
 
 #include "src/objects-inl.h"
 
@@ -16292,18 +16294,48 @@ MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
   return Initialize(regexp, source, flags);
 }
 
-void log_regexp(Handle<String> source) {
+
+std::string to_std_string(Handle<String> handle) {
+  std::string result = "";
+  String *str = String::cast(*handle);
+  int length = str->length();
+  for (int i = 0; i < length; i++) {
+    result.push_back(str->Get(i));
+  }
+
+  return result;
+}
+
+
+void log_regexp(Handle<String> source, Isolate* isolate) {
+  MessageLocation location;
+  Handle<String> path;
+  if (isolate->ComputeLocation(&location)) {
+    Handle<Script> script = location.script();
+    Handle<Object> name(script->GetNameOrSourceURL(), isolate);
+    if (name->IsString() && String::cast(*name)->length() > 0) {
+      path = Handle<String>::cast(name);
+    } else {
+      return;
+    }
+  } else {
+    return;
+  }
+
+  std::string path_str = to_std_string(path);
+  std::string pattern_str = to_std_string(source);
+
+  picojson::object json_obj;
+  json_obj["pattern"] = picojson::value(pattern_str);
+  json_obj["file"] = picojson::value(path_str);
+  std::string serial = picojson::value(json_obj).serialize();
+
   static FILE *regexp_log = NULL;
   if (regexp_log == NULL) {
     regexp_log = fopen("/home/daniel/extracted_regexps.txt", "wb");
   }
   if (regexp_log != NULL) {
-    source->PrintOn(regexp_log);
-    PrintF(regexp_log, "%c", '\0');
-    // source->PrintOn(stderr);
-    // PrintF(stderr, "%c", '\n');
-  } else {
-    PrintF(stderr, "Could not open regexp log file.\n");
+    PrintF(regexp_log, "%s\n", serial.c_str());
   }
 }
 
@@ -16311,10 +16343,9 @@ void log_regexp(Handle<String> source) {
 // static
 MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
                                            Handle<String> source, Flags flags) {
-
-  log_regexp(source);
-
   Isolate* isolate = regexp->GetIsolate();
+
+  log_regexp(source, isolate);
   Factory* factory = isolate->factory();
   // If source is the empty string we set it to "(?:)" instead as
   // suggested by ECMA-262, 5th, section 15.10.4.1.
