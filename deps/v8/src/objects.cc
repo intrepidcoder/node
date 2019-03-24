@@ -16295,18 +16295,6 @@ MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
 }
 
 
-std::string to_std_string(Handle<String> handle) {
-  std::string result = "";
-  String *str = String::cast(*handle);
-  int length = str->length();
-  for (int i = 0; i < length; i++) {
-    result.push_back(str->Get(i));
-  }
-
-  return result;
-}
-
-
 void log_regexp(Handle<String> source, Isolate* isolate) {
   MessageLocation location;
   Handle<String> path;
@@ -16322,20 +16310,17 @@ void log_regexp(Handle<String> source, Isolate* isolate) {
     return;
   }
 
-  std::string path_str = to_std_string(path);
-  std::string pattern_str = to_std_string(source);
+  std::string path_str = std::string(String::cast(*path)->ToCString().get());
+  std::string pattern_str = std::string(String::cast(*source)->ToCString().get());
 
   picojson::object json_obj;
   json_obj["pattern"] = picojson::value(pattern_str);
   json_obj["file"] = picojson::value(path_str);
   std::string serial = picojson::value(json_obj).serialize();
 
-  static FILE *regexp_log = NULL;
-  if (regexp_log == NULL) {
-    regexp_log = fopen("/home/daniel/extracted_regexps.txt", "wb");
-  }
-  if (regexp_log != NULL) {
-    PrintF(regexp_log, "%s\n", serial.c_str());
+  static std::fstream regexp_log("/home/daniel/extracted_regexps.txt", regexp_log.out);
+  if (regexp_log.is_open()) {
+    regexp_log << serial << std::endl;
   }
 }
 
